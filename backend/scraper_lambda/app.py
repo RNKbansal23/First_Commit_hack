@@ -9,7 +9,7 @@ def fetch_greenhouse(company_name, board_token):
     url = f"https://boards-api.greenhouse.io/v1/boards/{board_token}/jobs"
     try:
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req) as response:
+        with urllib.request.urlopen(req, timeout=10) as response:
             data = json.loads(response.read().decode())
             jobs = []
             for job in data.get('jobs', []):
@@ -33,7 +33,7 @@ def fetch_lever(company_name, board_token):
     url = f"https://api.lever.co/v0/postings/{board_token}?mode=json"
     try:
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req) as response:
+        with urllib.request.urlopen(req, timeout=10) as response:
             data = json.loads(response.read().decode())
             jobs = []
             for job in data:
@@ -68,7 +68,7 @@ def fetch_workday(company_name, tenant_url):
             'Content-Type': 'application/json',
             'User-Agent': 'Mozilla/5.0'
         })
-        with urllib.request.urlopen(req) as response:
+        with urllib.request.urlopen(req, timeout=10) as response:
             data = json.loads(response.read().decode())
             jobs = []
             for job in data.get('jobPostings', []):

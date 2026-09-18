@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
 import './App.css';
 
 // The custom 3D Tilt Card Component
@@ -8,19 +8,18 @@ const TiltCard = ({ job }) => {
   const handleMouseMove = (e) => {
     const card = cardRef.current;
     const rect = card.getBoundingClientRect();
-    const x = e.clientX - rect.left; // x position within the element
-    const y = e.clientY - rect.top;  // y position within the element
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
     
-    // Calculate rotation limits (-15 to +15 degrees)
     const rotateY = -15 + (x / rect.width) * 30;
     const rotateX = 15 - (y / rect.height) * 30;
 
-    card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.05)`;
+    card.style.transform = "perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.05)";
   };
 
   const handleMouseLeave = () => {
     const card = cardRef.current;
-    card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1)`;
+    card.style.transform = "perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1)";
   };
 
   return (
@@ -49,12 +48,26 @@ const TiltCard = ({ job }) => {
 };
 
 export default function App() {
-  // Test data based on your successful Python scraper output
-  const demoJobs = [
-    { id: '1', company: 'Figma', title: 'Brand Design Intern (Summer 2027)', location: 'Remote', url: '#' },
-    { id: '2', company: 'Figma', title: 'Data Science Intern (2027)', location: 'Remote', url: '#' },
-    { id: '3', company: 'Figma', title: 'Director, People Partners - Product, Design & Engineering', location: 'Remote', url: '#' }
-  ];
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetch('http://127.0.0.1:5000/api/jobs')
+      .then(response => {
+        if (!response.ok) throw new Error('Network response was not ok');
+        return response.json();
+      })
+      .then(data => {
+        setJobs(data.jobs_array || []);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Fetch error:", err);
+        setError(err.message);
+        setLoading(false);
+      });
+  }, []);
 
   return (
     <div className="dashboard-container">
@@ -63,11 +76,16 @@ export default function App() {
         <p>True Fresher roles, found 48 hours before the crowd.</p>
       </header>
 
-      <div className="jobs-grid">
-        {demoJobs.map(job => (
-          <TiltCard key={job.id} job={job} />
-        ))}
-      </div>
+      {loading && <div style={{textAlign: 'center', marginTop: '50px'}}>Loading live jobs... 🚀</div>}
+      {error && <div style={{textAlign: 'center', marginTop: '50px', color: '#ef4444'}}>Error fetching jobs: {error}</div>}
+
+      {!loading && !error && (
+        <div className="jobs-grid">
+          {jobs.map(job => (
+            <TiltCard key={job.id} job={job} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
