@@ -3,7 +3,6 @@ Transform: AWS::Serverless-2016-10-31
 Description: FirstMover Job Scraper and Evaluator
 
 Resources:
-  # 1. The DynamoDB Table
   JobsTable:
     Type: AWS::Serverless::SimpleTable
     Properties:
@@ -12,7 +11,6 @@ Resources:
         Name: JobID
         Type: String
 
-  # 2. The Scraper Lambda Function
   ScraperFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -21,7 +19,6 @@ Resources:
       Runtime: python3.11
       Timeout: 60
 
-  # 3. The Step Function (The AI Brain)
   FirstMoverStateMachine:
     Type: AWS::Serverless::StateMachine
     Properties:
@@ -32,12 +29,10 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref JobsTable
         - Statement:
-            # Grant permission to call Amazon Bedrock
             - Effect: Allow
               Action: bedrock:InvokeModel
-              Resource: arn:aws:bedrock:*::foundation-model/anthropic.claude-3-haiku-20240307-v1:0
+              Resource: "*"
 
-  # 4. The EventBridge Trigger (Runs every hour)
   HourlyScrapeSchedule:
     Type: AWS::Events::Rule
     Properties:
