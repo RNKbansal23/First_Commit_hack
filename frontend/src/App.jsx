@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import './App.css';
 
 // The custom 3D Tilt Card Component
@@ -30,9 +30,9 @@ const TiltCard = ({ job }) => {
       onMouseLeave={handleMouseLeave}
     >
       <div className="inner-card">
-        <div className="company-badge">{job.company}</div>
+        <div className="company-badge">{job.company}</div>`n        {job.is_new && <span className="new-badge">?? JUST POSTED</span>}
         <h3 className="job-title">{job.title}</h3>
-        <p className="job-location">📍 {job.location}</p>
+        <p className="job-location">?? {job.location}</p>
         
         <div className="card-actions">
           <button className="apply-btn" onClick={() => window.open(job.url, '_blank')}>
@@ -51,8 +51,10 @@ export default function App() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [locationFilter, setLocationFilter] = useState('All');
 
-  useEffect(() => {
+  const fetchJobs = () => {
+    setLoading(true);
     fetch('http://127.0.0.1:5000/api/jobs')
       .then(response => {
         if (!response.ok) throw new Error('Network response was not ok');
@@ -67,7 +69,16 @@ export default function App() {
         setError(err.message);
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchJobs();
   }, []);
+
+  const filteredJobs = jobs.filter(job => {
+    if (locationFilter === 'All') return true;
+    return job.region === locationFilter;
+  });
 
   return (
     <div className="dashboard-container">
@@ -76,14 +87,30 @@ export default function App() {
         <p>True Fresher roles, found 48 hours before the crowd.</p>
       </header>
 
-      {loading && <div style={{textAlign: 'center', marginTop: '50px'}}>Loading live jobs... 🚀</div>}
+      <div className="filter-bar">
+        <div className="filter-group">
+          {['All', 'India', 'US', 'Remote', 'Other'].map(loc => (
+            <button 
+              key={loc} 
+              className={"filter-btn "}
+              onClick={() => setLocationFilter(loc)}
+            >
+              {loc}
+            </button>
+          ))}
+        </div>
+        <button className="refresh-btn" onClick={fetchJobs}>Refresh Live Data ??</button>
+      </div>
+
+      {loading && <div style={{textAlign: 'center', marginTop: '50px'}}>Loading live jobs... ??</div>}
       {error && <div style={{textAlign: 'center', marginTop: '50px', color: '#ef4444'}}>Error fetching jobs: {error}</div>}
 
       {!loading && !error && (
         <div className="jobs-grid">
-          {jobs.map(job => (
+          {filteredJobs.map(job => (
             <TiltCard key={job.id} job={job} />
           ))}
+          {filteredJobs.length === 0 && <div style={{textAlign: 'center', gridColumn: '1 / -1'}}>No legitimate fresher jobs found for {locationFilter} currently.</div>}
         </div>
       )}
     </div>
