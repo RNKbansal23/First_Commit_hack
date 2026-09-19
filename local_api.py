@@ -1,11 +1,13 @@
 ﻿from flask import Flask, jsonify, request
 from flask_cors import CORS
+from flask_socketio import SocketIO, emit
 from backend.scraper_lambda.app import lambda_handler
 from backend.scraper_lambda.database import get_health_status, get_all_drives, get_db
 from extractor import start_extractor_thread
 
 app = Flask(__name__)
 CORS(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 start_extractor_thread()
 
@@ -116,5 +118,18 @@ def get_connector_status():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/internal/emit-notification', methods=['POST'])
+def emit_notification():
+    try:
+        payload = request.json
+        # Emitting to all connected clients for hackathon purposes
+        # In prod, you'd use room=payload['user_id']
+        socketio.emit('new_notification', payload)
+        return jsonify({"status": "emitted"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == '__main__':
-    app.run(debug=True, port=5000, use_reloader=False)
+    socketio.run(app, debug=True, port=5000, use_reloader=False, allow_unsafe_werkzeug=True)
+

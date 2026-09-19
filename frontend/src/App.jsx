@@ -1,13 +1,40 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Stars } from '@react-three/drei';
 import { motion, AnimatePresence } from 'framer-motion';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { Briefcase, Building, MapPin, ExternalLink, Activity, Clock, Search, Filter, X } from 'lucide-react';
+import { Briefcase, Building, MapPin, ExternalLink, Activity, Clock, Search, Filter, X, Bell } from 'lucide-react';
+import { io } from 'socket.io-client';
+import toast, { Toaster } from 'react-hot-toast';
 import './App.css';
 
 gsap.registerPlugin(ScrollTrigger);
+
+const formatRelativeTime = (timestamp) => {
+  if (!timestamp) return '';
+  const now = new Date();
+  const past = new Date(timestamp.endsWith('Z') ? timestamp : timestamp + 'Z');
+  const diffInSeconds = Math.floor((now - past) / 1000);
+  
+  if (diffInSeconds < 60) return 'Just now';
+  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
+  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+  if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} days ago`;
+  
+  return past.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
+const useRelativeTime = (timestamp) => {
+  const [timeStr, setTimeStr] = useState(formatRelativeTime(timestamp));
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimeStr(formatRelativeTime(timestamp));
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [timestamp]);
+  return timeStr;
+};
 
 const HeroScene = () => {
   const group = useRef();
@@ -38,13 +65,15 @@ const JobCard = ({ job, index }) => {
     const y = e.clientY - rect.top;
     const rotateY = -10 + (x / rect.width) * 20;
     const rotateX = 10 - (y / rect.height) * 20;
-    card.style.transform = "perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.02)";
+    card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.02)`;
   };
   const handleMouseLeave = () => {
     const card = cardRef.current;
     if(card) card.style.transform = "perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1)";
   };
   
+  const relativeTime = useRelativeTime(job.posted_at);
+  const isNew = relativeTime === 'Just now' || relativeTime.includes('minutes ago') && parseInt(relativeTime) < 5;
   let parsedSkills = [];
   try { if(job.skills) parsedSkills = JSON.parse(job.skills); } catch(e){}
 
@@ -65,7 +94,7 @@ const JobCard = ({ job, index }) => {
             <Building size={14} className="mr-1" />
             {job.company}
           </div>
-          {job.is_new && <span className="new-badge">?? JUST POSTED</span>}
+          {isNew && <span className="new-badge pulse">🔥 NEW</span>}
         </div>
         
         <h3 className="job-title">{job.title}</h3>
@@ -83,7 +112,9 @@ const JobCard = ({ job, index }) => {
         <div className="card-footer">
           <span className="platform-tag">{job.source_platform}</span>
           <span className="platform-tag ml-2">{job.region}</span>
-          <span className="platform-tag ml-2"><Clock size={10} className="inline mr-1" /> {new Date(job.posted_at + 'Z').toLocaleString()}</span>
+          <span className="platform-tag ml-2">
+            <Clock size={10} className="inline mr-1" /> {relativeTime}
+          </span>
         </div>
 
         <div className="card-actions">
@@ -97,7 +128,27 @@ const JobCard = ({ job, index }) => {
 };
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('jobs');
+  const [notifications, setNotifications] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  useEffect(() => {
+    const socket = io('http://127.0.0.1:5000');
+    socket.on('new_notification', (data) => {
+      console.log('Socket notification:', data);
+      setNotifications(prev => [data, ...prev]);
+      toast.success(
+        <div>
+          <b>New Match: {data.job.title}</b><br/>
+          {data.job.company} - {data.job.location}
+        </div>,
+        { duration: 5000, position: 'top-right' }
+      );
+    });
+    return () => socket.disconnect();
+  }, []);
+
+
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -139,11 +190,12 @@ export default function App() {
   };
 
   useEffect(() => {
-    fetchJobs(activeFilters, {
+    setTimeout(() => fetchJobs(activeFilters, {
+
       region: selectedRegion,
       posted_since: selectedPosted,
       experience_max: selectedExp
-    });
+    }), 0);
   }, [activeFilters, selectedRegion, selectedPosted, selectedExp]);
 
   const handleSmartSearch = async (e) => {
@@ -178,6 +230,41 @@ export default function App() {
 
   return (
     <div className="app-wrapper">
+      <Toaster />
+      
+      {/* Top Nav Notification Bell */}
+      <div style={{ position: 'fixed', top: 20, right: 30, zIndex: 1000 }}>
+        <div style={{ position: 'relative' }}>
+          <button 
+            onClick={() => setShowDropdown(!showDropdown)}
+            style={{ background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(255,255,255,0.1)', padding: '10px', borderRadius: '50%', color: 'white', cursor: 'pointer', pointerEvents: 'auto' }}
+          >
+            <Bell size={20} />
+            {unreadCount > 0 && (
+              <span style={{ position: 'absolute', top: -5, right: -5, background: 'red', color: 'white', borderRadius: '50%', padding: '2px 6px', fontSize: '10px', fontWeight: 'bold' }}>
+                {unreadCount}
+              </span>
+            )}
+          </button>
+          
+          {showDropdown && (
+            <div style={{ position: 'absolute', top: 50, right: 0, width: 300, background: 'rgba(15,23,42,0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '10px', color: 'white', backdropFilter: 'blur(10px)', pointerEvents: 'auto', maxHeight: '400px', overflowY: 'auto' }}>
+              <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '10px' }}>Notifications</h3>
+              {notifications.length === 0 ? (
+                <p style={{ fontSize: '12px', color: '#94a3b8' }}>No new notifications.</p>
+              ) : (
+                notifications.map((n, i) => (
+                  <div key={i} style={{ padding: '10px', borderBottom: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer' }} onClick={() => window.open(n.job.url, '_blank')}>
+                    <div style={{ fontWeight: 'bold', fontSize: '13px' }}>{n.job.title}</div>
+                    <div style={{ fontSize: '12px', color: '#94a3b8' }}>{n.job.company}</div>
+                    <div style={{ fontSize: '11px', color: '#3b82f6', marginTop: '5px' }}>{formatRelativeTime(n.job.posted_at)}</div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      </div>
       <div className="canvas-container-full">
         <Canvas camera={{ position: [0, 0, 5] }}>
           <ambientLight intensity={0.5} />
@@ -273,3 +360,10 @@ export default function App() {
     </div>
   );
 }
+
+
+
+
+
+
+

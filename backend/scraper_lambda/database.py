@@ -54,6 +54,38 @@ def init_db():
         )
     ''')
     
+    # Watch Rules Table
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS watch_rules (
+            id TEXT PRIMARY KEY,
+            user_id TEXT,
+            title_keywords TEXT,
+            experience_max INTEGER,
+            work_mode TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # Notifications Table
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS notifications (
+            id TEXT PRIMARY KEY,
+            user_id TEXT,
+            job_id TEXT,
+            watch_id TEXT,
+            read BOOLEAN DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # Insert Mock Demo User Watch Rule
+    c.execute('SELECT id FROM watch_rules WHERE user_id="demo_user"')
+    if not c.fetchone():
+        c.execute('''
+            INSERT INTO watch_rules (id, user_id, title_keywords, experience_max, work_mode)
+            VALUES (?, ?, ?, ?, ?)
+        ''', ('wr_1', 'demo_user', 'engineer,developer,intern,backend,frontend,analyst,architect,content', 5, 'remote'))
+    
     conn.commit()
     conn.close()
 
@@ -62,14 +94,26 @@ def save_job(job):
     c = conn.cursor()
     is_new = False
     
-    # Check if exists
     c.execute('SELECT id FROM jobs WHERE external_id=? AND source_platform=?', (job['external_id'], job['source_platform']))
     if not c.fetchone():
-        c.execute('''
-            INSERT INTO jobs (id, external_id, source_platform, company, title, location, url, region)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (job['id'], job['external_id'], job['source_platform'], job['company'], job['title'], job['location'], job['url'], job['region']))
+        if 'posted_at' in job and job['posted_at']:
+            c.execute('''
+                INSERT INTO jobs (id, external_id, source_platform, company, title, location, url, region, posted_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (job['id'], job['external_id'], job['source_platform'], job['company'], job['title'], job['location'], job['url'], job['region'], job['posted_at']))
+        else:
+            c.execute('''
+                INSERT INTO jobs (id, external_id, source_platform, company, title, location, url, region)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (job['id'], job['external_id'], job['source_platform'], job['company'], job['title'], job['location'], job['url'], job['region']))
         is_new = True
+        
+        # Dispatch EventBridge Event
+        try:
+            from backend.scraper_lambda.events import publish_job_created
+            publish_job_created(job)
+        except Exception as e:
+            print(f"Failed to publish EventBridge event: {e}")
     
     conn.commit()
     conn.close()
@@ -126,3 +170,5 @@ def get_all_drives():
     return [dict(ix) for ix in rows]
 
 init_db()
+
+

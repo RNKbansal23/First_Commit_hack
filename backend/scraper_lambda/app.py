@@ -16,6 +16,59 @@ class JobConnector:
     def fetch(self):
         raise NotImplementedError
 
+class SmartRecruitersConnector(JobConnector):
+    def __init__(self, company, companyIdentifier):
+        super().__init__(company, 'smartrecruiters')
+        self.companyIdentifier = companyIdentifier
+
+    def fetch(self):
+        jobs = []
+        offset = 0
+        limit = 100
+        
+        while True:
+            url = f"https://api.smartrecruiters.com/v1/companies/{self.companyIdentifier}/postings?limit={limit}&offset={offset}"
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            try:
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    data = json.loads(response.read().decode())
+                    content = data.get('content', [])
+                    
+                    for job in content:
+                        loc = job.get('location', {})
+                        city = loc.get('city', '')
+                        region = loc.get('region', '')
+                        country = loc.get('country', '')
+                        remote = loc.get('remote', False)
+                        
+                        location_parts = [p for p in [city, region, country] if p]
+                        location_str = ", ".join(location_parts) if location_parts else "Remote"
+                        if remote and "Remote" not in location_str:
+                            location_str += " (Remote)"
+                        
+                        jobs.append({
+                            "id": f"sr_{job['id']}",
+                            "external_id": str(job['id']),
+                            "source_platform": self.platform,
+                            "company": self.company,
+                            "title": job.get('name', ''),
+                            "location": location_str,
+                            "url": f"https://jobs.smartrecruiters.com/{self.companyIdentifier}/{job['id']}",
+                            "description": job.get('name', ''),
+                            "posted_at": job.get('releasedDate')
+                        })
+                    
+                    total = data.get('totalFound', 0)
+                    offset += limit
+                    if offset >= total:
+                        break
+            except urllib.error.HTTPError as e:
+                if e.code in [401, 403]:
+                    print(f"SmartRecruiters Auth Error for {self.company}: Needs API Key")
+                raise e
+                    
+        return jobs
+
 class GreenhouseConnector(JobConnector):
     def __init__(self, company, board_token):
         super().__init__(company, 'Greenhouse')
@@ -72,7 +125,6 @@ class WorkdayConnector(JobConnector):
         self.site_slug = site_slug
 
     def fetch(self):
-        # Fallback to empty for now since workday is flaky
         return []
 
 class CustomConnector(JobConnector):
@@ -86,7 +138,7 @@ class CustomConnector(JobConnector):
 # ---------------------------------------------------------
 def parse_region(location_str):
     loc = location_str.lower()
-    if 'india' in loc or 'bengaluru' in loc or 'bangalore' in loc or 'mumbai' in loc or 'delhi' in loc or 'hyderabad' in loc or 'gurugram' in loc or 'pune' in loc or 'chennai' in loc:
+    if 'india' in loc or 'bengaluru' in loc or 'bangalore' in loc or 'mumbai' in loc or 'delhi' in loc or 'hyderabad' in loc or 'gurugram' in loc or 'pune' in loc or 'chennai' in loc or 'in' in loc.split(','):
         return 'India'
     elif 'us' in loc or 'united states' in loc or 'san francisco' in loc or 'new york' in loc or 'seattle' in loc:
         return 'US'
@@ -116,7 +168,8 @@ def run_connectors():
         GreenhouseConnector("GitLab", "gitlab"),
         GreenhouseConnector("Discord", "discord"),
         LeverConnector("Spotify", "spotify"),
-        LeverConnector("Meesho", "meesho")
+        LeverConnector("Meesho", "meesho"),
+        SmartRecruitersConnector("Zomato", "Zomato1")
     ]
     
     target_keywords = ['engineer', 'developer', 'sde', 'analyst', 'fresher', 'intern', 'junior', 'graduate']
