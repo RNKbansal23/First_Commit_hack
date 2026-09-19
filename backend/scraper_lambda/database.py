@@ -108,15 +108,18 @@ def save_job(job):
             ''', (job['id'], job['external_id'], job['source_platform'], job['company'], job['title'], job['location'], job['url'], job['region']))
         is_new = True
         
+        
+    conn.commit()
+    conn.close()
+    
+    if is_new:
         # Dispatch EventBridge Event
         try:
             from backend.scraper_lambda.events import publish_job_created
             publish_job_created(job)
         except Exception as e:
             print(f"Failed to publish EventBridge event: {e}")
-    
-    conn.commit()
-    conn.close()
+            
     return is_new
 
 def update_health(company, platform, success):
@@ -170,5 +173,6 @@ def get_all_drives():
     return [dict(ix) for ix in rows]
 
 init_db()
+
 
 
