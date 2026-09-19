@@ -1,38 +1,118 @@
-AWSTemplateFormatVersion: '2010-09-09'
+﻿AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: FirstMover Job Scraper and Evaluator
+Description: JobPulse (FirstMover) Cloud Architecture
 
 Resources:
+  # ---------------------------------------------------------
+  # 1. DynamoDB Tables
+  # ---------------------------------------------------------
   JobsTable:
     Type: AWS::Serverless::SimpleTable
     Properties:
       TableName: FirstMover-Jobs
       PrimaryKey:
-        Name: JobID
+        Name: id
         Type: String
 
+  WatchRulesTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      TableName: FirstMover-WatchRules
+      PrimaryKey:
+        Name: id
+        Type: String
+
+  NotificationsTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      TableName: FirstMover-Notifications
+      PrimaryKey:
+        Name: id
+        Type: String
+
+  ConnectorHealthTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      TableName: FirstMover-Health
+      PrimaryKey:
+        Name: company
+        Type: String
+
+  DrivesTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      TableName: FirstMover-Drives
+      PrimaryKey:
+        Name: id
+        Type: String
+
+  # ---------------------------------------------------------
+  # 2. EventBridge & SNS
+  # ---------------------------------------------------------
+  JobPulseEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: jobpulse.connectors
+
+  JobPulseSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: jobpulse-notifications
+
+  # ---------------------------------------------------------
+  # 3. AWS Lambda Functions
+  # ---------------------------------------------------------
   ScraperFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: backend/scraper_lambda/
       Handler: app.lambda_handler
       Runtime: python3.11
-      Timeout: 60
-
-  FirstMoverStateMachine:
-    Type: AWS::Serverless::StateMachine
-    Properties:
-      DefinitionUri: backend/statemachine/firstmover.asl.json
-      DefinitionSubstitutions:
-        JobsTableName: !Ref JobsTable
+      Timeout: 120
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref JobsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ConnectorHealthTable
         - Statement:
             - Effect: Allow
-              Action: bedrock:InvokeModel
-              Resource: "*"
+              Action: events:PutEvents
+              Resource: !GetAtt JobPulseEventBus.Arn
+      Environment:
+        Variables:
+          EVENT_BUS_NAME: !Ref JobPulseEventBus
 
+  MatchEngineFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/scraper_lambda/
+      Handler: match_engine.lambda_handler
+      Runtime: python3.11
+      Timeout: 30
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WatchRulesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationsTable
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt JobPulseSNSTopic.TopicName
+      Environment:
+        Variables:
+          SNS_TOPIC_ARN: !Ref JobPulseSNSTopic
+      Events:
+        JobCreatedRule:
+          Type: EventBridgeRule
+          Properties:
+            EventBusName: !Ref JobPulseEventBus
+            Pattern:
+              source:
+                - jobpulse.connectors
+              detail-type:
+                - JobCreated
+
+  # ---------------------------------------------------------
+  # 4. Triggers
+  # ---------------------------------------------------------
   HourlyScrapeSchedule:
     Type: AWS::Events::Rule
     Properties:

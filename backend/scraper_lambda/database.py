@@ -5,7 +5,9 @@ from datetime import datetime
 DB_PATH = os.path.join(os.path.dirname(__file__), 'firstmover.db')
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
+    # Added timeout=30 to prevent database is locked errors during high concurrency
+    conn = sqlite3.connect(DB_PATH, timeout=30, isolation_level=None)
+    conn.execute('PRAGMA journal_mode=WAL;')
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -84,7 +86,7 @@ def init_db():
         c.execute('''
             INSERT INTO watch_rules (id, user_id, title_keywords, experience_max, work_mode)
             VALUES (?, ?, ?, ?, ?)
-        ''', ('wr_1', 'demo_user', 'engineer,developer,intern,backend,frontend,analyst,architect,content', 5, 'remote'))
+        ''', ('wr_1', 'demo_user', 'engineer,developer,intern,backend,frontend,analyst,architect,content', 5, ''))
     
     conn.commit()
     conn.close()
@@ -107,7 +109,6 @@ def save_job(job):
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ''', (job['id'], job['external_id'], job['source_platform'], job['company'], job['title'], job['location'], job['url'], job['region']))
         is_new = True
-        
         
     conn.commit()
     conn.close()
@@ -173,6 +174,4 @@ def get_all_drives():
     return [dict(ix) for ix in rows]
 
 init_db()
-
-
 

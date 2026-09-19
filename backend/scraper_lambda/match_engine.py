@@ -58,3 +58,15 @@ def run_match_engine(job):
         from backend.scraper_lambda.notifications import publish_to_sns
         for payload in matched_notifications:
             publish_to_sns(payload)
+
+def lambda_handler(event, context):
+    print("MatchEngine Lambda Triggered!")
+    
+    # EventBridge payload wrapper
+    if 'detail' in event:
+        job = event['detail']
+        run_match_engine(job)
+    else:
+        print("Invalid event format")
+        
+    return {"statusCode": 200, "body": "MatchEngine executed"}
