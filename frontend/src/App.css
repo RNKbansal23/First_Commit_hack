@@ -201,6 +201,7 @@ button {
 }
 
 .hero-content {
+  pointer-events: none;
   position: relative;
   z-index: 2;
   text-align: center;
@@ -344,4 +345,161 @@ button {
 .card-footer {
   margin-top: 10px;
   margin-bottom: 20px;
+}
+/* Smart Search & Filter UI Updates */
+
+.search-form {
+  pointer-events: auto;
+  position: relative;
+  display: flex;
+  margin: 20px auto 0;
+  max-width: 600px;
+  background: rgba(30,41,59,0.7);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 30px;
+  padding: 8px;
+  backdrop-filter: blur(10px);
+}
+
+.search-icon {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+}
+
+.smart-search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: white;
+  padding: 12px 12px 12px 50px;
+  font-size: 1rem;
+  outline: none;
+}
+
+.smart-search-input::placeholder {
+  color: #64748b;
+}
+
+.search-btn {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.search-btn:hover {
+  background: #2563eb;
+}
+
+.active-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 30px;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.5);
+  border-radius: 12px;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.active-chip {
+  display: flex;
+  align-items: center;
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  gap: 8px;
+}
+
+.active-chip button {
+  background: transparent;
+  border: none;
+  color: #93c5fd;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+}
+
+.active-chip button:hover {
+  color: white;
+}
+
+.clear-all {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  cursor: pointer;
+  margin-left: 10px;
+}
+
+.clear-all:hover {
+  color: white;
+}
+
+.skills-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.skill-tag {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+.canvas-container-full {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+}
+.hero-section, .dashboard-container {
+  position: relative;
+  z-index: 10;
+}
+.explicit-filters {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 15px;
+  pointer-events: auto;
+}
+
+.dropdown-filter {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  outline: none;
+  cursor: pointer;
+  backdrop-filter: blur(5px);
+}
+
+.dropdown-filter:hover {
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.dropdown-filter option {
+  background: #0f172a;
+  color: white;
 }

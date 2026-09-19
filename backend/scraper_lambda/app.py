@@ -72,24 +72,8 @@ class WorkdayConnector(JobConnector):
         self.site_slug = site_slug
 
     def fetch(self):
-        url = f"https://{self.tenant}.wd{self.wd_number}.myworkdayjobs.com/wday/cxs/{self.tenant}/{self.site_slug}/jobs"
-        payload = json.dumps({"appliedFacets": {}, "limit": 20, "offset": 0, "searchText": ""}).encode('utf-8')
-        req = urllib.request.Request(url, data=payload, headers={'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=10) as response:
-            data = json.loads(response.read().decode())
-            jobs = []
-            for job in data.get('jobPostings', []):
-                jobs.append({
-                    "id": f"wd_{job.get('bulletinId', '0')}",
-                    "external_id": str(job.get('bulletinId', '0')),
-                    "source_platform": self.platform,
-                    "company": self.company,
-                    "title": job.get('title', ''),
-                    "location": job.get('locationsText', 'Remote'),
-                    "url": f"https://{self.tenant}.wd{self.wd_number}.myworkdayjobs.com/{self.site_slug}{job.get('externalPath', '')}",
-                    "description": job.get('title', '')
-                })
-            return jobs
+        # Fallback to empty for now since workday is flaky
+        return []
 
 class CustomConnector(JobConnector):
     def __init__(self, company, platform_name="Custom"):
@@ -113,7 +97,7 @@ def parse_region(location_str):
 
 def is_true_fresher(title, description):
     combined = (title + " " + description).lower()
-    fake_patterns = [r'\b[2-9]\+?\s*years?\b', r'\bmanager\b', r'\bsenior\b', r'\bprincipal\b', r'\bhead\b', r'\bvp\b', r'\bdirector\b', r'\blead\b']
+    fake_patterns = [r'\b[2-9]\+?\s*years?\b', r'\bmanager\b', r'\bstaff\b', r'\bsenior\b', r'\bprincipal\b', r'\bhead\b', r'\bvp\b', r'\bdirector\b', r'\blead\b']
     for pattern in fake_patterns:
         if re.search(pattern, combined): return False
     return True
@@ -123,15 +107,16 @@ def run_connectors():
     connectors = [
         GreenhouseConnector("Figma", "figma"),
         GreenhouseConnector("Stripe", "stripe"),
-        GreenhouseConnector("Razorpay", "razorpaysoftware"),
-        GreenhouseConnector("Zepto", "zepto"),
+        GreenhouseConnector("Airbnb", "airbnb"),
+        GreenhouseConnector("Pinterest", "pinterest"),
+        GreenhouseConnector("Reddit", "reddit"),
+        GreenhouseConnector("Lyft", "lyft"),
+        GreenhouseConnector("Twitch", "twitch"),
+        GreenhouseConnector("Dropbox", "dropbox"),
+        GreenhouseConnector("GitLab", "gitlab"),
+        GreenhouseConnector("Discord", "discord"),
         LeverConnector("Spotify", "spotify"),
-        LeverConnector("Atlassian", "atlassian"),
-        LeverConnector("Meesho", "meesho"),
-        WorkdayConnector("Adobe", "adobe", "5", "adobe"),
-        WorkdayConnector("Salesforce", "salesforce", "1", "salesforce"),
-        CustomConnector("Google"),
-        CustomConnector("Amazon")
+        LeverConnector("Meesho", "meesho")
     ]
     
     target_keywords = ['engineer', 'developer', 'sde', 'analyst', 'fresher', 'intern', 'junior', 'graduate']
