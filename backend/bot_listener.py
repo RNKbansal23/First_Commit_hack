@@ -1,0 +1,148 @@
+﻿import os
+import telebot
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from dotenv import load_dotenv
+import sqlite3
+import uuid
+
+load_dotenv()
+
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+if not TELEGRAM_TOKEN:
+    print("ERROR: TELEGRAM_BOT_TOKEN not found in .env")
+    exit(1)
+
+bot = telebot.TeleBot(TELEGRAM_TOKEN)
+
+# In-memory dictionary to track user setup state
+user_states = {}
+
+DB_PATH = os.path.join(os.path.dirname(__file__), 'scraper_lambda', 'firstmover.db')
+
+def get_db():
+    conn = sqlite3.connect(DB_PATH, timeout=30, isolation_level=None)
+    conn.execute('PRAGMA journal_mode=WAL;')
+    conn.row_factory = sqlite3.Row
+    return conn
+
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    chat_id = message.chat.id
+    user_states[chat_id] = {'step': 'keywords'}
+    
+    bot.send_message(
+        chat_id,
+        "👋 Welcome to JobPulse!\n\n"
+        "Let's set up your personalized job filter. "
+        "What roles are you looking for? \n\n"
+        "_(e.g., frontend, backend, analyst, python, intern)_",
+        parse_mode="Markdown"
+    )
+
+@bot.message_handler(func=lambda message: user_states.get(message.chat.id, {}).get('step') == 'keywords')
+def process_keywords(message):
+    chat_id = message.chat.id
+    user_states[chat_id]['keywords'] = message.text
+    user_states[chat_id]['step'] = 'experience'
+    
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 3
+    markup.add(
+        InlineKeyboardButton("0 (Fresher/Intern)", callback_data="exp_0"),
+        InlineKeyboardButton("1-2 Years", callback_data="exp_2"),
+        InlineKeyboardButton("3-5 Years", callback_data="exp_5"),
+        InlineKeyboardButton("5+ Years", callback_data="exp_10")
+    )
+    
+    bot.send_message(
+        chat_id,
+        "Great! What is your maximum years of experience?",
+        reply_markup=markup
+    )
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('exp_'))
+def process_experience(call):
+    chat_id = call.message.chat.id
+    if user_states.get(chat_id, {}).get('step') != 'experience':
+        bot.answer_callback_query(call.id, 'This button is expired!')
+        return
+    chat_id = call.message.chat.id
+    exp_val = int(call.data.split('_')[1])
+    
+    user_states[chat_id]['experience_max'] = exp_val
+    user_states[chat_id]['step'] = 'location'
+    
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 2
+    markup.add(
+        InlineKeyboardButton("Remote Only", callback_data="loc_remote"),
+        InlineKeyboardButton("Anywhere", callback_data="loc_any")
+    )
+    
+    bot.edit_message_text(
+        chat_id=chat_id,
+        message_id=call.message.message_id,
+        text=f"Experience set to {exp_val} years. Any location preference?",
+        reply_markup=markup
+    )
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('loc_'))
+def process_location(call):
+    chat_id = call.message.chat.id
+    if user_states.get(chat_id, {}).get('step') != 'location':
+        bot.answer_callback_query(call.id, 'This button is expired!')
+        return
+    chat_id = call.message.chat.id
+    loc_val = "remote" if call.data == "loc_remote" else ""
+    
+    # We have all data, save to DB
+    keywords = user_states[chat_id].get('keywords', '')
+    exp = user_states[chat_id].get('experience_max', 5)
+    
+    # Save to SQLite WatchRules
+    try:
+        conn = get_db()
+        c = conn.cursor()
+        
+        # Check if user already exists
+        c.execute('SELECT id FROM watch_rules WHERE user_id = ?', (str(chat_id),))
+        existing = c.fetchone()
+        
+        if existing:
+            c.execute('''
+                UPDATE watch_rules 
+                SET title_keywords = ?, experience_max = ?, work_mode = ?
+                WHERE user_id = ?
+            ''', (keywords, exp, loc_val, str(chat_id)))
+        else:
+            rule_id = str(uuid.uuid4())
+            c.execute('''
+                INSERT INTO watch_rules (id, user_id, title_keywords, experience_max, work_mode)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (rule_id, str(chat_id), keywords, exp, loc_val))
+            
+        conn.close()
+        
+        # Clear state
+        del user_states[chat_id]
+        
+        mode_text = "Remote only" if loc_val == "remote" else "Any location"
+        bot.edit_message_text(
+            chat_id=chat_id,
+            message_id=call.message.message_id,
+            text=f"✅ **Setup Complete!**\n\n"
+                 f"Roles: {keywords}\n"
+                 f"Max Exp: {exp} years\n"
+                 f"Location: {mode_text}\n\n"
+                 f"I will now notify you instantly when matching jobs drop! 🚀",
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        print(f"DB Error: {e}")
+        bot.send_message(chat_id, "Sorry, there was an error saving your preferences.")
+
+if __name__ == '__main__':
+    print("Bot Listener is running. Send /start to the bot on Telegram.")
+    bot.infinity_polling()
+
+

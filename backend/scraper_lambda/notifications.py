@@ -16,7 +16,10 @@ TELEGRAM_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
 def send_telegram_message(payload):
-    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
+    chat_id = payload.get('user_id')
+    if not chat_id:
+        chat_id = TELEGRAM_CHAT_ID
+    if not TELEGRAM_TOKEN or not chat_id:
         print("Telegram: Skip sending, TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID missing.")
         return
         
@@ -30,7 +33,7 @@ def send_telegram_message(payload):
     tg_url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     try:
         requests.post(tg_url, json={
-            "chat_id": TELEGRAM_CHAT_ID,
+            "chat_id": chat_id,
             "text": text,
             "parse_mode": "Markdown"
         })
@@ -59,3 +62,4 @@ def publish_to_sns(payload):
     # Local Dev Hackathon Fallback: Trigger Telegram and WebSocket directly
     send_telegram_message(payload)
     trigger_local_websocket(payload)
+
