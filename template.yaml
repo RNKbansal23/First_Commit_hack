@@ -2,6 +2,13 @@
 Transform: AWS::Serverless-2016-10-31
 Description: JobPulse (FirstMover) Cloud Architecture
 
+Globals:
+  Api:
+    Cors:
+      AllowMethods: "'GET,POST,OPTIONS'"
+      AllowHeaders: "'content-type'"
+      AllowOrigin: "'*'"
+
 Resources:
   # ---------------------------------------------------------
   # 1. DynamoDB Tables
@@ -121,3 +128,26 @@ Resources:
       Targets:
         - Arn: !GetAtt ScraperFunction.Arn
           Id: ScraperTarget
+
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/scraper_lambda/
+      Handler: api.lambda_handler
+      Runtime: python3.11
+      Timeout: 15
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref JobsTable
+      Events:
+        GetJobsApi:
+          Type: Api
+          Properties:
+            Path: /api/jobs
+            Method: GET
+
+Outputs:
+  ApiUrl:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/api/jobs"
+
