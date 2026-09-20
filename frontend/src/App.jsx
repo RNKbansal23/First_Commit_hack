@@ -153,7 +153,7 @@ export default function App() {
 
   const fetchJobs = (filters = {}, explicit = {}) => {
     setLoading(true);
-    let url = new URL('https://REPLACE_WITH_YOUR_API_GATEWAY_URL/Prod/api/jobs');
+    let url = new URL('https://e1kmcsw3j3.execute-api.us-east-1.amazonaws.com/Prod/api/jobs');
     
     // AI Filters
     if (filters['experience_max']) url.searchParams.append('experience_max', filters['experience_max']);
@@ -197,7 +197,7 @@ export default function App() {
     }
     setLoading(true);
     try {
-      const res = await fetch('https://REPLACE_WITH_YOUR_API_GATEWAY_URL/Prod/api/jobs/smart-search', {
+      const res = await fetch('https://e1kmcsw3j3.execute-api.us-east-1.amazonaws.com/Prod/api/jobs/smart-search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: searchQuery })
@@ -351,6 +351,7 @@ export default function App() {
     </div>
   );
 }
+
 
 
 
