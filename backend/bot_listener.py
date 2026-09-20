@@ -177,10 +177,71 @@ def finalize_setup(call):
             message_id=call.message.message_id,
             text=f"Setup Complete!\n\nRoles: {keywords}\nMax Exp: {exp} years\nLocation: {loc_val.title()}\nCompanies: {comps_text}\n\nI will now notify you instantly when matching jobs drop from AWS!"
         )
+        
+        # Immediate Database Scan for live data feedback
+        bot.send_message(chat_id, "Searching the live AWS database for existing matches... 🔎")
+        
+        jobs_table = dynamodb.Table('FirstMover-Jobs')
+        db_response = jobs_table.scan()
+        all_jobs = db_response.get('Items', [])
+        
+        matching_jobs = []
+        for job in all_jobs:
+            if companies and job.get('company') not in companies:
+                continue
+                
+            job_combined = (job.get('title', '') + " " + (job.get('description', '') or '')).lower()
+            keyword_match = False
+            kws = keywords.split(',') if keywords else []
+            if not kws:
+                keyword_match = True
+            else:
+                for kw in kws:
+                    if kw.strip() and kw.strip().lower() in job_combined:
+                        keyword_match = True
+                        break
+                        
+            mode_match = True
+            if loc_val and loc_val != 'any':
+                job_loc = (job.get('location') or '').lower()
+                job_mode = (job.get('work_mode') or '').lower()
+                if loc_val not in job_mode and loc_val not in job_loc:
+                    mode_match = False
+                    
+            if keyword_match and mode_match:
+                matching_jobs.append(job)
+                if len(matching_jobs) >= 3:
+                    break
+                    
+        if not matching_jobs:
+            markup = telebot.types.InlineKeyboardMarkup()
+            markup.add(telebot.types.InlineKeyboardButton("Restart Setup 🔄", callback_data="restart_setup"))
+            bot.send_message(
+                chat_id, 
+                "⚠️ **No Existing Matches Found**\n\nI checked the live database, but there are no current jobs that match these exact filters.\n\nDon't worry! I will stay on high alert and notify you the moment a new matching job drops on AWS. If you'd like to broaden your search right now, click below to try different filters.",
+                parse_mode="Markdown",
+                reply_markup=markup
+            )
+        else:
+            bot.send_message(chat_id, f"🎉 Good news! I found **{len(matching_jobs)}** jobs currently active in the database! Here they are:", parse_mode="Markdown")
+            for job in matching_jobs:
+                title = job.get('title', 'New Job')
+                company = job.get('company', 'Company')
+                url = job.get('url', '')
+                text = f"🚀 *{title}* @ {company}\n[Apply Here]({url})"
+                bot.send_message(chat_id, text, parse_mode="Markdown", disable_web_page_preview=True)
+                
     except Exception as e:
         print(f"DynamoDB Error: {e}")
         bot.send_message(chat_id, "Sorry, there was an error saving your preferences to the cloud.")
 
+
+@bot.callback_query_handler(func=lambda call: call.data == "restart_setup")
+def process_restart(call):
+    bot.send_message(call.message.chat.id, "Let's set up your personalized job filter. What roles are you looking for?\n\n(e.g., frontend, backend, analyst, python, intern)")
+    bot.register_next_step_handler(call.message, process_keywords_step)
+
 if __name__ == '__main__':
     print("Bot Listener is running. Connected to AWS DynamoDB.")
     bot.infinity_polling()
+
