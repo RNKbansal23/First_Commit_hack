@@ -3,7 +3,7 @@ import urllib.request
 import re
 import concurrent.futures
 from datetime import datetime
-from backend.scraper_lambda.database import save_job, update_health, get_all_jobs
+from database import save_job, update_health, get_all_jobs
 
 # ---------------------------------------------------------
 # Connectors
@@ -200,3 +200,4 @@ def run_connectors():
 def lambda_handler(event, context):
     run_connectors()
     return {"jobs_array": get_all_jobs()}
+

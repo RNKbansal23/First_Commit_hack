@@ -63,3 +63,4 @@ def publish_to_sns(payload):
     send_telegram_message(payload)
     trigger_local_websocket(payload)
 
+

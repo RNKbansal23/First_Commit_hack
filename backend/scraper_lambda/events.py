@@ -30,5 +30,6 @@ def publish_job_created(job):
         
     # Local Dev Hackathon Fallback: Trigger MatchEngine directly so the demo keeps working
     print("Triggering MatchEngine local handler...")
-    from backend.scraper_lambda.match_engine import run_match_engine
+    from match_engine import run_match_engine
     run_match_engine(job)
+

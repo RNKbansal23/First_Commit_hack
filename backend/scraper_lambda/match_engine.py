@@ -1,5 +1,5 @@
 ﻿import uuid
-from backend.scraper_lambda.database import get_db
+from database import get_db
 
 def run_match_engine(job):
     print(f"MatchEngine: Analyzing new job: {job['title']} at {job['company']}")
@@ -55,7 +55,7 @@ def run_match_engine(job):
     
     # Fan out to SNS
     if matched_notifications:
-        from backend.scraper_lambda.notifications import publish_to_sns
+        from notifications import publish_to_sns
         for payload in matched_notifications:
             publish_to_sns(payload)
 
@@ -70,3 +70,4 @@ def lambda_handler(event, context):
         print("Invalid event format")
         
     return {"statusCode": 200, "body": "MatchEngine executed"}
+
