@@ -25,56 +25,12 @@ You don't need to install anything to see the magic. Try the live Telegram bot r
 
 JobPulse is built on a highly scalable, robust AWS Serverless architecture designed for extreme speed and low latency.
 
-`mermaid
-graph TD
-    %% AWS Event Source
-    Cron[Amazon EventBridge<br>Hourly Trigger] -->|Invokes| ScraperLambda
-
-    %% Scraping & Ingestion
-    subgraph "Data Ingestion Layer (AWS)"
-        ScraperLambda[AWS Lambda:<br>Python Scraper]
-        ScraperLambda -->|Extracts HTML/JSON| Lever[Lever/Greenhouse APIs]
-        ScraperLambda -->|Writes New Jobs| DynamoJobs[(DynamoDB:<br>FirstMover-Jobs)]
-    end
-
-    %% Real-time Match Engine
-    subgraph "Real-Time Processing Engine (AWS)"
-        DynamoJobs -->|DynamoDB Streams / Event| MatchEngine[AWS Lambda:<br>MatchEngine]
-        MatchEngine -->|Reads User Rules| DynamoRules[(DynamoDB:<br>FirstMover-WatchRules)]
-        MatchEngine -.->|Evaluates Logic:<br>Keyword + Exp + Loc| Decision{Is Match?}
-    end
-
-    %% Dispatch
-    subgraph "Notification & Dispatch"
-        Decision -->|Yes| SNS[Amazon SNS Topic]
-        SNS -->|HTTPS Webhook| TelegramAPI((Telegram API))
-        TelegramAPI -->|Instant Message| UserPhone📱
-    end
-
-    %% Frontend App
-    subgraph "Web Application"
-        Vercel[Vercel Frontend:<br>React + Vite] -->|Polls Live Data| DynamoJobs
-        Vercel -.-> UserWeb💻
-    end
-
-    %% Styles
-    classDef aws fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#fff;
-    classDef db fill:#3B48CC,stroke:#232F3E,stroke-width:2px,color:#fff;
-    classDef bot fill:#24A1DE,stroke:#fff,stroke-width:2px,color:#fff;
-    classDef frontend fill:#000,stroke:#fff,stroke-width:2px,color:#fff;
-    
-    class ScraperLambda,MatchEngine,SNS,Cron aws;
-    class DynamoJobs,DynamoRules db;
-    class TelegramAPI bot;
-    class Vercel frontend;
-`
-
-*(Note: If the diagram above does not render, please see the static architecture diagram [here](assets/architecture-animated.svg))*
+![Architecture Diagram](assets/architecture-animated.svg)
 
 ### How the Architecture Works:
 1. **Amazon EventBridge**: Triggers the Python Scraper Lambda automatically on a strict schedule.
-2. **Scraper Lambda**: Reaches out to the career portals of supported tech giants, parses the job data, and writes fresh job entries into the FirstMover-Jobs DynamoDB table.
-3. **MatchEngine Lambda**: Operates completely asynchronously. Whenever a new job is written to the database, the MatchEngine is triggered. It scans the FirstMover-WatchRules DynamoDB table where all user Telegram filters are stored.
+2. **Scraper Lambda**: Reaches out to the career portals of supported tech giants, parses the job data, and writes fresh job entries into the `FirstMover-Jobs` DynamoDB table.
+3. **MatchEngine Lambda**: Operates completely asynchronously. Whenever a new job is written to the database, the MatchEngine is triggered. It scans the `FirstMover-WatchRules` DynamoDB table where all user Telegram filters are stored.
 4. **Amazon SNS & Webhooks**: If the new job satisfies a user's exact criteria, an event is pushed through Amazon SNS and directly triggers a webhook to the Telegram API, instantly messaging the user.
 5. **Vercel Frontend**: A sleek, dark-mode React application deployed on Vercel allows users to manually browse the live feed of AWS jobs in real-time.
 
