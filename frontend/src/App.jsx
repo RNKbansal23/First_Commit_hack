@@ -152,7 +152,6 @@ export default function App() {
   const [selectedExp, setSelectedExp] = useState('');
 
   const fetchJobs = (filters = {}, explicit = {}) => {
-    setLoading(true);
     let url = new URL('https://e1kmcsw3j3.execute-api.us-east-1.amazonaws.com/Prod/api/jobs');
     
     // AI Filters
@@ -195,7 +194,6 @@ export default function App() {
       setActiveFilters({});
       return;
     }
-    setLoading(true);
     try {
       const res = await fetch('https://e1kmcsw3j3.execute-api.us-east-1.amazonaws.com/Prod/api/jobs/smart-search', {
         method: 'POST',
@@ -351,6 +349,8 @@ export default function App() {
     </div>
   );
 }
+
+
 
 
 
