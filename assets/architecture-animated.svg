@@ -143,12 +143,12 @@
   <!-- MatchEngine Lambda -->
   <g transform="translate(380, 430)">
     <rect width="240" height="90" class="box-highlight box-aws" />
-    <text x="120" y="35" text-anchor="middle" class="node-title">MatchEngine Lambda</text>
+    <text x="120" y="38" text-anchor="middle" class="node-title">MatchEngine Lambda</text>
     <text x="120" y="55" text-anchor="middle" class="node-desc">Event-Driven Processor</text>
     <text x="120" y="75" text-anchor="middle" class="node-desc">Evaluates User WatchRules</text>
     <!-- Badge -->
-    <rect x="95" y="-10" width="50" height="20" rx="10" fill="#F59E0B" />
-    <text x="120" y="4" text-anchor="middle" class="badge">CORE</text>
+    <rect x="95" y="-14" width="50" height="20" rx="10" fill="#F59E0B" />
+    <text x="120" y="0" text-anchor="middle" class="badge">CORE</text>
   </g>
 
 
@@ -188,13 +188,13 @@
   <path d="M 620 195 C 670 195, 680 300, 720 300" class="line" marker-end="url(#arrow)" />
   
   <!-- Vercel to DynamoDB Jobs -->
-  <path d="M 250 485 C 300 485, 330 310, 720 310" class="line" stroke-dasharray="4" stroke="#475569" marker-end="url(#arrow)" />
+  <path d="M 250 485 C 330 485, 330 330, 720 330" class="line" stroke-dasharray="4" stroke="#475569" marker-end="url(#arrow)" />
   
   <!-- User to DynamoDB Rules -->
-  <path d="M 250 595 C 320 595, 330 400, 720 400" class="line" marker-end="url(#arrow)" />
+  <path d="M 250 595 L 680 595 C 700 595, 700 405, 720 405" class="line" marker-end="url(#arrow)" />
 
   <!-- DynamoDB to MatchEngine (Stream trigger) -->
-  <path d="M 720 380 C 670 380, 680 475, 620 475" class="line-fast" marker-end="url(#arrow-fast)" />
+  <path d="M 720 380 C 650 380, 650 475, 620 475" class="line-fast" marker-end="url(#arrow-fast)" />
   
   <!-- MatchEngine to SNS -->
   <path d="M 620 500 C 680 500, 680 555, 740 555" class="line-fast" marker-end="url(#arrow-fast)" />
