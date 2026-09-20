@@ -1,4 +1,4 @@
-name: Deploy FirstMover Backend
+﻿name: Deploy FirstMover Backend
 
 on:
   push:
@@ -25,4 +25,4 @@ jobs:
       - name: SAM Build and Deploy
         run: |
           sam build
-          sam deploy --no-confirm-changeset --no-fail-on-empty-changeset
+          sam deploy --stack-name jobpulse-backend --resolve-s3 --capabilities CAPABILITY_IAM --no-confirm-changeset --no-fail-on-empty-changeset
