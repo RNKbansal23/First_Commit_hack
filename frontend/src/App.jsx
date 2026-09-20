@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { Briefcase, Building, MapPin, ExternalLink, Activity, Clock, Search, Filter, X, Bell } from 'lucide-react';
-import { io } from 'socket.io-client';
+
 import toast, { Toaster } from 'react-hot-toast';
 import './App.css';
 
@@ -133,18 +133,7 @@ export default function App() {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   useEffect(() => {
-    const socket = io('http://127.0.0.1:5000');
-    socket.on('new_notification', (data) => {
-      console.log('Socket notification:', data);
-      setNotifications(prev => [data, ...prev]);
-      toast.success(
-        <div>
-          <b>New Match: {data.job.title}</b><br/>
-          {data.job.company} - {data.job.location}
-        </div>,
-        { duration: 5000, position: 'top-right' }
-      );
-    });
+    
     return () => socket.disconnect();
   }, []);
 
@@ -164,7 +153,7 @@ export default function App() {
 
   const fetchJobs = (filters = {}, explicit = {}) => {
     setLoading(true);
-    let url = new URL('http://127.0.0.1:5000/api/jobs');
+    let url = new URL('https://REPLACE_WITH_YOUR_API_GATEWAY_URL/Prod/api/jobs');
     
     // AI Filters
     if (filters['experience_max']) url.searchParams.append('experience_max', filters['experience_max']);
@@ -190,12 +179,14 @@ export default function App() {
   };
 
   useEffect(() => {
+    const interval = setInterval(() => fetchJobs(activeFilters, { region: selectedRegion, posted_since: selectedPosted, experience_max: selectedExp }), 5000);
     setTimeout(() => fetchJobs(activeFilters, {
 
       region: selectedRegion,
       posted_since: selectedPosted,
       experience_max: selectedExp
     }), 0);
+  return () => clearInterval(interval);
   }, [activeFilters, selectedRegion, selectedPosted, selectedExp]);
 
   const handleSmartSearch = async (e) => {
@@ -206,7 +197,7 @@ export default function App() {
     }
     setLoading(true);
     try {
-      const res = await fetch('http://127.0.0.1:5000/api/jobs/smart-search', {
+      const res = await fetch('https://REPLACE_WITH_YOUR_API_GATEWAY_URL/Prod/api/jobs/smart-search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: searchQuery })
@@ -360,6 +351,8 @@ export default function App() {
     </div>
   );
 }
+
+
 
 
 
