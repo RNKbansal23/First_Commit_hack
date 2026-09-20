@@ -69,7 +69,7 @@ graph TD
     class Vercel frontend;
 `
 
-*(Note: If the diagram above does not render, please see the static architecture diagram [here](assets/architecture.png))*
+*(Note: If the diagram above does not render, please see the static architecture diagram [here](assets/architecture-animated.svg))*
 
 ### How the Architecture Works:
 1. **Amazon EventBridge**: Triggers the Python Scraper Lambda automatically on a strict schedule.
