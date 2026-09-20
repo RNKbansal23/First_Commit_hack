@@ -3,27 +3,14 @@ import json
 import boto3
 import requests
 
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass
+sns_client = boto3.client('sns', region_name=os.getenv('AWS_DEFAULT_REGION', 'us-east-1'))
 
-sns_client = boto3.client('sns', 
-    region_name=os.getenv('AWS_DEFAULT_REGION', 'us-east-1'),
-    aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID', 'test'),
-    aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY', 'test')
-)
-
-TELEGRAM_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+TELEGRAM_TOKEN = "8853866585:AAGnS3G5IpOFa3n-ZbYJ94k38QW-rnLVyKE"
 
 def send_telegram_message(payload):
     chat_id = payload.get('user_id')
-    if not chat_id:
-        chat_id = TELEGRAM_CHAT_ID
     if not TELEGRAM_TOKEN or not chat_id:
-        print("Telegram: Skip sending, TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID missing.")
+        print("Telegram: Skip sending, TELEGRAM_BOT_TOKEN or chat_id missing.")
         return
         
     job = payload['job']
@@ -45,26 +32,19 @@ def send_telegram_message(payload):
         print(f"Telegram: Failed to send message: {e}")
 
 def trigger_local_websocket(payload):
-    # This hits the local Flask server to emit the SocketIO event
-    try:
-        requests.post("http://127.0.0.1:5000/api/internal/emit-notification", json=payload)
-    except Exception as e:
-        print(f"Local WebSocket emit failed: {e}")
+    pass
 
 def publish_to_sns(payload):
     print(f"SNS: Publishing notification for user {payload['user_id']}")
     try:
-        response = sns_client.publish(
-            TopicArn="arn:aws:sns:us-east-1:123456789012:jobpulse-notifications", # Mock ARN
-            Message=json.dumps(payload)
-        )
-        print("SNS Publish Response:", response)
+        topic_arn = os.getenv('SNS_TOPIC_ARN')
+        if topic_arn:
+            sns_client.publish(
+                TopicArn=topic_arn,
+                Message=json.dumps(payload)
+            )
     except Exception as e:
         print(f"SNS Publish failed (expected locally): {e}")
         
-    # Local Dev Hackathon Fallback: Trigger Telegram and WebSocket directly
+    # Local Dev Hackathon Fallback: Trigger Telegram directly
     send_telegram_message(payload)
-    trigger_local_websocket(payload)
-
-
-
