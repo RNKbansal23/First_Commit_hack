@@ -238,7 +238,9 @@ def finalize_setup(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == "restart_setup")
 def process_restart(call):
-    bot.send_message(call.message.chat.id, "Let's set up your personalized job filter. What roles are you looking for?\n\n(e.g., frontend, backend, analyst, python, intern)")
+    chat_id = call.message.chat.id
+    user_states[chat_id] = {'step': 'keywords', 'companies': []}
+    bot.send_message(chat_id, "Let's set up your personalized job filter. What roles are you looking for?\n\n(e.g., frontend, backend, analyst, python, intern)")
     bot.register_next_step_handler(call.message, process_keywords)
 
 if __name__ == '__main__':
