@@ -2,8 +2,8 @@
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from dotenv import load_dotenv
-import sqlite3
-import uuid
+import boto3
+from datetime import datetime
 
 load_dotenv()
 
@@ -13,17 +13,11 @@ if not TELEGRAM_TOKEN:
     exit(1)
 
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
-
-# In-memory dictionary to track user setup state
 user_states = {}
 
-DB_PATH = os.path.join(os.path.dirname(__file__), 'scraper_lambda', 'firstmover.db')
-
-def get_db():
-    conn = sqlite3.connect(DB_PATH, timeout=30, isolation_level=None)
-    conn.execute('PRAGMA journal_mode=WAL;')
-    conn.row_factory = sqlite3.Row
-    return conn
+# Initialize DynamoDB resource
+dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
+watch_rules_table = dynamodb.Table('FirstMover-WatchRules')
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -32,11 +26,10 @@ def send_welcome(message):
     
     bot.send_message(
         chat_id,
-        "👋 Welcome to JobPulse!\n\n"
+        "Welcome to JobPulse!\n\n"
         "Let's set up your personalized job filter. "
         "What roles are you looking for? \n\n"
-        "_(e.g., frontend, backend, analyst, python, intern)_",
-        parse_mode="Markdown"
+        "(e.g., frontend, backend, analyst, python, intern)",
     )
 
 @bot.message_handler(func=lambda message: user_states.get(message.chat.id, {}).get('step') == 'keywords')
@@ -48,7 +41,7 @@ def process_keywords(message):
     markup = InlineKeyboardMarkup()
     markup.row_width = 3
     markup.add(
-        InlineKeyboardButton("0 (Fresher/Intern)", callback_data="exp_0"),
+        InlineKeyboardButton("0 (Fresher)", callback_data="exp_0"),
         InlineKeyboardButton("1-2 Years", callback_data="exp_2"),
         InlineKeyboardButton("3-5 Years", callback_data="exp_5"),
         InlineKeyboardButton("5+ Years", callback_data="exp_10")
@@ -66,7 +59,6 @@ def process_experience(call):
     if user_states.get(chat_id, {}).get('step') != 'experience':
         bot.answer_callback_query(call.id, 'This button is expired!')
         return
-    chat_id = call.message.chat.id
     exp_val = int(call.data.split('_')[1])
     
     user_states[chat_id]['experience_max'] = exp_val
@@ -92,57 +84,38 @@ def process_location(call):
     if user_states.get(chat_id, {}).get('step') != 'location':
         bot.answer_callback_query(call.id, 'This button is expired!')
         return
-    chat_id = call.message.chat.id
-    loc_val = "remote" if call.data == "loc_remote" else ""
     
-    # We have all data, save to DB
+    loc_val = "remote" if call.data == "loc_remote" else "any"
     keywords = user_states[chat_id].get('keywords', '')
     exp = user_states[chat_id].get('experience_max', 5)
     
-    # Save to SQLite WatchRules
     try:
-        conn = get_db()
-        c = conn.cursor()
+        # Save to DynamoDB
+        watch_rules_table.put_item(
+            Item={
+                'id': f"wr_{chat_id}",
+                'user_id': str(chat_id),
+                'title_keywords': keywords,
+                'experience_max': exp,
+                'work_mode': loc_val,
+                'created_at': datetime.utcnow().isoformat()
+            }
+        )
         
-        # Check if user already exists
-        c.execute('SELECT id FROM watch_rules WHERE user_id = ?', (str(chat_id),))
-        existing = c.fetchone()
-        
-        if existing:
-            c.execute('''
-                UPDATE watch_rules 
-                SET title_keywords = ?, experience_max = ?, work_mode = ?
-                WHERE user_id = ?
-            ''', (keywords, exp, loc_val, str(chat_id)))
-        else:
-            rule_id = str(uuid.uuid4())
-            c.execute('''
-                INSERT INTO watch_rules (id, user_id, title_keywords, experience_max, work_mode)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (rule_id, str(chat_id), keywords, exp, loc_val))
-            
-        conn.close()
-        
-        # Clear state
         del user_states[chat_id]
         
         mode_text = "Remote only" if loc_val == "remote" else "Any location"
         bot.edit_message_text(
             chat_id=chat_id,
             message_id=call.message.message_id,
-            text=f"✅ **Setup Complete!**\n\n"
-                 f"Roles: {keywords}\n"
-                 f"Max Exp: {exp} years\n"
-                 f"Location: {mode_text}\n\n"
-                 f"I will now notify you instantly when matching jobs drop! 🚀",
-            parse_mode="Markdown"
+            text=f"Setup Complete!\n\nRoles: {keywords}\nMax Exp: {exp} years\nLocation: {mode_text}\n\nI will now notify you instantly when matching jobs drop from AWS!"
         )
     except Exception as e:
-        print(f"DB Error: {e}")
-        bot.send_message(chat_id, "Sorry, there was an error saving your preferences.")
+        print(f"DynamoDB Error: {e}")
+        bot.send_message(chat_id, "Sorry, there was an error saving your preferences to the cloud.")
 
 if __name__ == '__main__':
-    print("Bot Listener is running. Send /start to the bot on Telegram.")
+    print("Bot Listener is running. Connected to AWS DynamoDB.")
     bot.infinity_polling()
 
 
