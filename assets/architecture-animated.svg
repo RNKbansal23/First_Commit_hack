@@ -124,7 +124,7 @@
   <g transform="translate(50, 560)">
     <rect width="200" height="70" class="box box-telegram" />
     <text x="100" y="30" text-anchor="middle" class="node-title">Telegram User</text>
-    <text x="100" y="50" text-anchor="middle" class="node-desc">Set Filters (/start)</text>
+    <text x="100" y="50" text-anchor="middle" class="node-desc">Sets Filters (/start)</text>
     <!-- Badge -->
     <rect x="75" y="-10" width="50" height="20" rx="10" fill="#0EA5E9" />
     <text x="100" y="4" text-anchor="middle" class="badge">BOT</text>
@@ -151,6 +151,16 @@
     <text x="120" y="0" text-anchor="middle" class="badge">CORE</text>
   </g>
 
+
+
+  <!-- EC2 Bot Listener -->
+  <g transform="translate(380, 560)">
+    <rect width="240" height="70" class="box-aws" fill="#1E293B" stroke="#F59E0B" stroke-width="2" rx="12" />
+    <text x="120" y="30" text-anchor="middle" class="node-title">EC2 Bot Listener</text>
+    <text x="120" y="50" text-anchor="middle" class="node-desc">Python (Infinity Polling)</text>
+    <rect x="95" y="-10" width="50" height="20" rx="10" fill="#F59E0B" />
+    <text x="120" y="4" text-anchor="middle" class="badge">HOST</text>
+  </g>
 
   <!-- Right Side: Database & Notifications -->
   <g transform="translate(720, 250)">
@@ -191,7 +201,9 @@
   <path d="M 250 485 C 330 485, 330 330, 720 330" class="line" stroke-dasharray="4" stroke="#475569" marker-end="url(#arrow)" />
   
   <!-- User to DynamoDB Rules -->
-  <path d="M 250 595 L 680 595 C 700 595, 700 405, 720 405" class="line" marker-end="url(#arrow)" />
+  <path d="M 250 595 L 380 595" class="line" marker-end="url(#arrow)" />
+  <!-- EC2 to DynamoDB Rules -->
+  <path d="M 620 595 L 680 595 C 700 595, 700 405, 720 405" class="line" marker-end="url(#arrow)" />
 
   <!-- DynamoDB to MatchEngine (Stream trigger) -->
   <path d="M 720 380 C 650 380, 650 475, 620 475" class="line-fast" marker-end="url(#arrow-fast)" />
