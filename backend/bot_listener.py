@@ -239,9 +239,10 @@ def finalize_setup(call):
 @bot.callback_query_handler(func=lambda call: call.data == "restart_setup")
 def process_restart(call):
     bot.send_message(call.message.chat.id, "Let's set up your personalized job filter. What roles are you looking for?\n\n(e.g., frontend, backend, analyst, python, intern)")
-    bot.register_next_step_handler(call.message, process_keywords_step)
+    bot.register_next_step_handler(call.message, process_keywords)
 
 if __name__ == '__main__':
     print("Bot Listener is running. Connected to AWS DynamoDB.")
     bot.infinity_polling()
+
 
