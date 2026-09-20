@@ -2,9 +2,12 @@
 import json
 import boto3
 import requests
-from dotenv import load_dotenv
 
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 sns_client = boto3.client('sns', 
     region_name=os.getenv('AWS_DEFAULT_REGION', 'us-east-1'),
@@ -62,5 +65,6 @@ def publish_to_sns(payload):
     # Local Dev Hackathon Fallback: Trigger Telegram and WebSocket directly
     send_telegram_message(payload)
     trigger_local_websocket(payload)
+
 
 
