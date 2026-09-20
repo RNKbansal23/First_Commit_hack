@@ -1,7 +1,7 @@
 ﻿import os
 import json
 import boto3
-import requests
+import urllib.request
 
 sns_client = boto3.client('sns', region_name=os.getenv('AWS_DEFAULT_REGION', 'us-east-1'))
 
@@ -21,12 +21,16 @@ def send_telegram_message(payload):
     text = f"🚀 *New Match Found!*\n\n*{title}* @ {company}\n_Posted just now_\n\n[Apply Here]({url})"
     
     tg_url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    
+    data = json.dumps({
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "Markdown"
+    }).encode('utf-8')
+    
+    req = urllib.request.Request(tg_url, data=data, headers={'Content-Type': 'application/json'})
     try:
-        requests.post(tg_url, json={
-            "chat_id": chat_id,
-            "text": text,
-            "parse_mode": "Markdown"
-        })
+        urllib.request.urlopen(req)
         print("Telegram: Message sent successfully!")
     except Exception as e:
         print(f"Telegram: Failed to send message: {e}")
