@@ -10,17 +10,32 @@ def save_job(job):
     try:
         # Check if exists
         response = table.get_item(Key={'id': job['id']})
+        should_save = False
+        is_new = False
+        
         if 'Item' not in response:
+            should_save = True
+            is_new = True
             if 'posted_at' not in job or not job['posted_at']:
                 job['posted_at'] = datetime.utcnow().isoformat()
+        else:
+            existing = response['Item']
+            # Force update if missing AI data
+            if 'real_experience_required' not in existing:
+                should_save = True
+                if 'posted_at' not in job or not job['posted_at']:
+                    job['posted_at'] = existing.get('posted_at', datetime.utcnow().isoformat())
+
+        if should_save:
             table.put_item(Item=job)
             
-            # Dispatch EventBridge Event
-            try:
-                from events import publish_job_created
-                publish_job_created(job)
-            except Exception as e:
-                print(f"Failed to publish EventBridge event: {e}")
+            if is_new:
+                # Dispatch EventBridge Event
+                try:
+                    from events import publish_job_created
+                    publish_job_created(job)
+                except Exception as e:
+                    pass
             return True
     except Exception as e:
         print(f"DynamoDB save error: {e}")

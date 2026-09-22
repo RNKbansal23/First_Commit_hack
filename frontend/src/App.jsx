@@ -109,6 +109,24 @@ const JobCard = ({ job, index }) => {
           </div>
         )}
         
+        {job.description && (
+          <div style={{ marginTop: '10px', fontSize: '12px', color: '#94a3b8', maxHeight: '60px', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>
+            {job.description}
+          </div>
+        )}
+        
+        {job.is_gimmick && (
+          <div style={{ marginTop: '10px', fontSize: '12px', color: '#ff4d4f', background: 'rgba(255, 77, 79, 0.1)', padding: '5px', borderRadius: '4px', border: '1px solid rgba(255, 77, 79, 0.3)' }}>
+            ⚠️ <strong>Warning:</strong> {job.gimmick_reason}
+          </div>
+        )}
+        
+        {job.real_experience_required && job.real_experience_required !== 'Unknown' && (
+          <div style={{ marginTop: '10px', fontSize: '11px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '4px', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.3)', display: 'inline-block' }}>
+            ✨ AI Insight: <strong>Experience:</strong> {job.real_experience_required}
+          </div>
+        )}
+        
         <div className="card-footer">
           <span className="platform-tag">{job.source_platform}</span>
           <span className="platform-tag ml-2">{job.region}</span>
@@ -134,7 +152,7 @@ export default function App() {
 
   useEffect(() => {
     
-    return () => socket.disconnect();
+    
   }, []);
 
 

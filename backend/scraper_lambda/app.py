@@ -1,8 +1,17 @@
-﻿import json
+import json
 import urllib.request
 import re
 import concurrent.futures
 from datetime import datetime
+import os
+import google.generativeai as genai
+from dotenv import load_dotenv
+load_dotenv()
+try:
+    genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+except:
+    pass
+
 from database import save_job, update_health, get_all_jobs
 
 # ---------------------------------------------------------
@@ -75,12 +84,16 @@ class GreenhouseConnector(JobConnector):
         self.board_token = board_token
 
     def fetch(self):
-        url = f"https://boards-api.greenhouse.io/v1/boards/{self.board_token}/jobs"
+        url = f"https://boards-api.greenhouse.io/v1/boards/{self.board_token}/jobs?content=true"
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
         with urllib.request.urlopen(req, timeout=10) as response:
             data = json.loads(response.read().decode())
             jobs = []
             for job in data.get('jobs', []):
+                import html
+                content = html.unescape(job.get('content', ''))
+                # strip html tags safely
+                desc_text = re.sub(r'<[^>]+>', ' ', content)
                 jobs.append({
                     "id": f"gh_{job['id']}",
                     "external_id": str(job['id']),
@@ -89,7 +102,8 @@ class GreenhouseConnector(JobConnector):
                     "title": job.get('title', ''),
                     "location": job.get('location', {}).get('name', 'Remote'),
                     "url": job.get('absolute_url', ''),
-                    "description": job.get('title', '')
+                    "description": desc_text,
+                    "posted_at": job.get('updated_at', '')
                 })
             return jobs
 
@@ -113,7 +127,8 @@ class LeverConnector(JobConnector):
                     "title": job.get('text', ''),
                     "location": job.get('categories', {}).get('location', 'Remote'),
                     "url": job.get('hostedUrl', ''),
-                    "description": job.get('text', '')
+                    "description": job.get('descriptionPlain', job.get('text', '')),
+                    "posted_at": str(job.get('createdAt', ''))
                 })
             return jobs
 
@@ -147,12 +162,31 @@ def parse_region(location_str):
     else:
         return 'Other'
 
-def is_true_fresher(title, description):
+def detect_gimmick(title, description):
     combined = (title + " " + description).lower()
-    fake_patterns = [r'\b[2-9]\+?\s*years?\b', r'\bmanager\b', r'\bstaff\b', r'\bsenior\b', r'\bprincipal\b', r'\bhead\b', r'\bvp\b', r'\bdirector\b', r'\blead\b']
-    for pattern in fake_patterns:
-        if re.search(pattern, combined): return False
-    return True
+    fake_patterns = {
+        r'\b[2-9]\+?\s*years?\b': "Mentions 2+ years of experience",
+        r'\bmanager\b': "Mentions 'Manager' in description",
+        r'\bstaff\b': "Mentions 'Staff' level",
+        r'\bsenior\b': "Mentions 'Senior' level",
+        r'\bprincipal\b': "Mentions 'Principal'",
+        r'\bhead\b': "Mentions 'Head of'",
+        r'\bvp\b': "Mentions 'VP'",
+        r'\bdirector\b': "Mentions 'Director'",
+        r'\blead\b': "Mentions 'Lead'"
+    }
+    
+    is_fresher_title = any(kw in title.lower() for kw in ['fresher', 'intern', 'junior', 'graduate', 'entry', 'new grad'])
+    
+    for pattern, reason in fake_patterns.items():
+        if re.search(pattern, combined):
+            if is_fresher_title:
+                return {"is_gimmick": True, "reason": reason}
+            else:
+                # Not a fresher title, but requires experience. Just a normal job.
+                return {"is_gimmick": False, "reason": None}
+                
+    return {"is_gimmick": False, "reason": None}
 
 def run_connectors():
     print("Running modular connectors...")
@@ -192,12 +226,33 @@ def run_connectors():
 
     for job in all_jobs:
         if any(keyword in job['title'].lower() for keyword in target_keywords):
-            if is_true_fresher(job['title'], job['description']):
+            # For SmartRecruiters, fetch description lazily if matched
+            if job['source_platform'] == 'smartrecruiters' and job['description'] == job['title']:
+                try:
+                    req = urllib.request.Request(f"https://api.smartrecruiters.com/v1/companies/{job['company']}/postings/{job['external_id']}", headers={'User-Agent': 'Mozilla/5.0'})
+                    with urllib.request.urlopen(req, timeout=5) as response:
+                        d = json.loads(response.read().decode())
+                        job['description'] = d.get('jobAd', {}).get('sections', {}).get('jobDescription', {}).get('text', '')
+                except:
+                    pass
+
+            gimmick_info = detect_gimmick(job['title'], job['description'])
+            # Only save jobs that aren't senior masquerading as fresher
+            if not gimmick_info['is_gimmick'] or 'fresher' in job['title'].lower() or 'intern' in job['title'].lower():
                 job['region'] = parse_region(job['location'])
+                job['is_gimmick'] = gimmick_info['is_gimmick']
+                job['gimmick_reason'] = gimmick_info['reason']
+                job['real_experience_required'] = gimmick_info.get('real_experience_required', 'Unknown')
                 is_new = save_job(job)
                 job['is_new'] = is_new
 
 def lambda_handler(event, context):
     run_connectors()
     return {"jobs_array": get_all_jobs()}
+
+
+if __name__ == '__main__':
+    print('Testing scraper locally...')
+    lambda_handler({}, {})
+    print('Done!')
 

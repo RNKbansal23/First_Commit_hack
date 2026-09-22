@@ -1,8 +1,10 @@
-﻿from flask import Flask, jsonify, request
+import sys
+sys.path.append('backend/scraper_lambda')
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 from backend.scraper_lambda.app import lambda_handler
-from backend.scraper_lambda.database import get_health_status, get_all_drives, get_db
+from backend.scraper_lambda.database import get_health_status, get_all_drives, get_all_jobs
 from extractor import start_extractor_thread
 
 app = Flask(__name__)
@@ -23,56 +25,44 @@ def get_jobs():
         region = request.args.get('region')
         posted_since_hours = request.args.get('posted_since')
         
-        conn = get_db()
-        c = conn.cursor()
-        
-        query = 'SELECT * FROM jobs WHERE 1=1'
-        params = []
-        
-        if experience_max:
-            # STRICT filter to prove it works: must have extracted experience and it must be <= requested
-            query += ' AND experience_max <= ? AND experience_max IS NOT NULL'
-            params.append(int(experience_max))
+        jobs = get_all_jobs()
+        filtered = []
+        for j in jobs:
+            if experience_max:
+                exp = j.get('experience_max')
+                if exp is None or int(exp) > int(experience_max): continue
+            if work_mode:
+                if j.get('work_mode') not in work_mode: continue
+            if title_match:
+                if title_match.lower() not in j.get('title', '').lower(): continue
+            if region and region != 'All':
+                if j.get('region') != region: continue
+            if posted_since_hours:
+                import datetime
+                posted = j.get('posted_at')
+                if posted:
+                    try:
+                        dt = datetime.datetime.fromisoformat(posted.replace('Z', '+00:00'))
+                        if dt < datetime.datetime.now(dt.tzinfo) - datetime.timedelta(hours=int(posted_since_hours)):
+                            continue
+                    except: pass
             
-        if work_mode:
-            placeholders = ','.join('?' for _ in work_mode)
-            query += f' AND work_mode IN ({placeholders})'
-            params.extend(work_mode)
-            
-        if title_match:
-            query += ' AND title LIKE ?'
-            params.append(f'%{title_match}%')
-            
-        if region and region != 'All':
-            query += ' AND region = ?'
-            params.append(region)
-            
-        if posted_since_hours:
-            query += ' AND posted_at >= datetime("now", ?)'
-            params.append(f'-{posted_since_hours} hours')
-            
-        query += ' ORDER BY posted_at DESC LIMIT 200'
-        c.execute(query, params)
-        rows = c.fetchall()
-        jobs = [dict(ix) for ix in rows]
-        
-        if skills:
-            filtered_jobs = []
-            for j in jobs:
-                job_skills_json = j['skills']
-                if not job_skills_json: continue
+            if skills:
+                js_json = j.get('skills')
+                if not js_json: continue
                 import json
                 try:
-                    job_skills = json.loads(job_skills_json)
-                    if any(s.lower() in [js.lower() for js in job_skills] for s in skills):
-                        filtered_jobs.append(j)
-                except:
-                    pass
-            jobs = filtered_jobs
+                    js = json.loads(js_json)
+                    if not any(s.lower() in [x.lower() for x in js] for s in skills):
+                        continue
+                except: continue
+                
+            filtered.append(j)
             
-        conn.close()
-        return jsonify({"jobs_array": jobs}), 200
+        return jsonify({"jobs_array": filtered[:200]}), 200
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/jobs/smart-search', methods=['POST'])
